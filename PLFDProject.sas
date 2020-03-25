@@ -1,0 +1,179 @@
+/*############Project Learning From Data############
+#Author:Kubam Ivo
+#Purpose: Second Chance Examination for PLFD*/
+
+data weight_data;
+infile "D:\Msc. Biostatistics\Level One\First Semester\Project Learning From Data\PLFD.csv" firstobs=2 dsd  missover;
+input gender age race education marital_status interpreter annual_income drinks measweight smoking own;
+log_measweight = log(measweight);
+
+if smoking=1 then smoke1=1; else smoke1=0;label smoke1="Everyday";
+if smoking=2 then smoke2=1; else smoke2=0;label smoke2="some days";
+if race=1 then race1=1; else race1=0;label race1="Mexican";
+if race=2 then race2=1; else race2=0;label race1="Other Hispanic";
+if race=3 then race3=1; else race3=0;label race1= "Non Hispanic";
+if race=4 then race4=1; else race4=0; label race1= "Hispanic Black";
+if marital_status=1 then mar1=1; else mar1=0;
+if marital_status=2 then mar2=1; else mar2=0;
+if marital_status=3 then mar3=1; else mar3=0;
+if marital_status=4 then mar4=1; else mar4=0;
+if marital_status=5 then mar5=1; else mar5=0;
+if annual_income=1 then inc1=1; else inc1=0;
+if annual_income=2 then inc2=1; else inc2=0;
+if annual_income=3 then inc3=1; else inc3=0;
+if annual_income=4 then inc4=1; else inc4=0;
+if annual_income=5 then inc5=1; else inc5=0;
+if annual_income=6 then inc6=1; else inc6=0;
+if annual_income=7 then inc7=1; else inc7=0;
+if annual_income=8 then inc8=1; else inc8=0;
+if annual_income=9 then inc9=1; else inc9=0;
+if education=1 then edu1=1; else edu1=0;
+if education=2 then edu2=1; else edu2=0;
+if education=3 then edu3=1; else edu3=0;
+if education=4 then edu4=1; else edu4=0;
+if gender = 2 then genderx=1; else genderx=0;
+if interpreter = 1 then inter1=1; else inter1=0;
+am2 = mar2*age;
+am3 = mar3*age;
+am4 = mar4*age;
+am5 = mar5*age;
+drinkgen = drinks*genderx;
+rg1 = race1*genderx;
+rg2 = race2*genderx;
+rg3 = race3*genderx;
+rg4 = race4*genderx;
+wgtdiff= measweight - own;
+label diff=’Difference between Body Weight and Self-reported Weight’;
+label drinks=’Number of alcoholic drinks’;
+label gender=’Gender’;
+label race=’Race’;
+label education=’Education’;
+label marital_status=’Marital Status’;
+label annual_income=’Annual household income’;
+label drinks=’Number of alcoholic drinks’;
+label measweight=’Body Weight’;
+label own=’Self-reported Body Weight’;
+label smoking=’Smoking’;
+label age=’Age’;
+label interpreter=’Use of Interpreter’;
+run;
+
+/*Preparing Model building and Validation data set*/
+
+/* create a separate data set for each role */
+%let propTrain = 0.5;         /* proportion of trainging data */
+%let propValid = 0.5;         /* proportion of validation data */
+data model Validate;
+array p[1] _temporary_ (&propTrain, &propValid);
+set weight_data;
+call streaminit(123);         /* set random number seed */
+/* RAND("table") returns 1, 2, or 3 with specified probabilities */
+_k = rand("Table", of p[*]);
+if      _k = 1 then output Model;
+
+else                output Validate;
+drop _k;
+run;
+
+
+/*Model Building For Objective one*/
+
+*Scatter Plot Matrix;
+proc sgscatter data = weight_data;
+Title "Scatter Plot Matrix";
+matrix gender age race education marital_status interpreter annual_income drinks measweight smoking own;
+run;
+
+*Correlation Matrix;
+/*Changing the template for correlation matritx*/
+proc template;
+   edit Base.Corr.StackedMatrix;
+      column (RowName RowLabel) (Matrix) * (Matrix2);
+      edit matrix;
+         cellstyle _val_  = -1.00 as {backgroundcolor=CXEEEEEE},
+                   _val_ <= -0.75 as {backgroundcolor=red},
+                   _val_ <= -0.50 as {backgroundcolor=blue},
+                   _val_ <= -0.25 as {backgroundcolor=cyan},
+                   _val_ <=  0.25 as {backgroundcolor=white},
+                   _val_ <=  0.50 as {backgroundcolor=cyan},
+                   _val_ <=  0.75 as {backgroundcolor=blue},
+                   _val_ <   1.00 as {backgroundcolor=red},
+                   _val_  =  1.00 as {backgroundcolor=CXEEEEEE};
+      end;
+   end;
+run;
+
+ods _all_ close;
+ods html body='corr.html' style=HTMLBlue;
+
+proc corr data=weight_data noprob;
+	var gender age race education marital_status interpreter annual_income drinks measweight smoking own;
+   ods select PearsonCorr;
+run;
+
+ods html close;
+ods listing;
+
+proc template;
+   delete Base.Corr.StackedMatrix / store=sasuser.templat;
+run;
+
+
+*Model Selection;
+
+proc reg data = model;
+title 'Stepwise Selection';
+model wgtdiff = gender age race education marital_status interpreter annual_income drinks smoking  /selection = stepwise;
+run;
+proc reg data = model;
+title 'Best Two model based on cp';
+model wgtdiff = gender age race education marital_status interpreter annual_income drinks smoking /selection = cp best=3 adjrsq;
+run;
+
+proc reg data = model;
+title 'Best Two model based on rsquare';
+model wgtdiff = gender age race education marital_status interpreter annual_income drinks smoking /selection = rsquare best=3 adjrsq cp;
+run;
+proc reg data = model;
+title 'Foreared selection ';
+model wgtdiff = gender age race education marital_status interpreter annual_income drinks smoking /selection = forward rsquare adjrsq cp;
+run;
+
+
+*modelling selected predictors ;
+proc reg data = model;
+title 'Model fit with the building data set';
+model wgtdiff = drinks genderx;
+run;
+proc reg data = validate;
+title 'Model fit with the validation data set';
+model wgtdiff = drinks genderx;
+run;
+
+proc reg data = weight_data;
+title 'Model fit with the combine data set';
+model log_measweight = smoke1 smoke2 drinks genderx age race1 race2 race3 race4 rg1 rg2 rg3 rg4;
+run;
+
+proc reg data = model;
+title 'Model fit with the building data set';
+model log_measweight = inter1 smoke1 smoke2 drinks genderx age mar1 mar2 mar3 mar4 mar5 edu1 edu2 edu3 edu4/influence;
+run;
+
+
+proc reg data = weight_data;
+title 'Model fit with the combined data set';
+model wgtdiff =  drinks genderx drinkgen;
+run;
+
+ods graphics on;
+
+proc reg data=weight_data 
+      plots(label)=(CooksD RStudentByLeverage DFFITS DFBETAS);
+   
+   model log_measweight = inter1 smoke1 smoke2 drinks genderx age;
+run;
+
+ods graphics off; 
+
+

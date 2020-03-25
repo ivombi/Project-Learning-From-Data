@@ -1,0 +1,51 @@
+############Project Learning From Data############
+#Author:Kubam Ivo
+#Purpose: Second Chance Examination for PLFD
+
+#Importing dataset
+library(haven)
+weight_data <- read.csv("D:\\Msc. Biostatistics\\Level One\\First Semester\\Project Learning From Data\\PLFD.csv",header = T)
+attach(weight_data)
+detach(weight_data)
+str(weight_data)
+#Exploratory Data Analysis
+par(mfrow=c(3,2))
+boxplot(weight_data$BMXWT~weight_data$RIAGENDR,names=c("Male","female"),ylab="Weight",main = "Weight Vs Gender")
+plot(BMXWT~RIDAGEYR,main="Weight Vs Age",xlab="Age",ylab="Weight")
+boxplot(BMXWT ~ RIDRETH1, names = c("Mexican","Other Hispanic","Non-Hispanic White","NonHispanic Black","Other")
+        ,main = "Weight Vs Race",ylab="Weight")
+boxplot(BMXWT~DMDEDUC2,names = c("Less than 9th grade","9-11th grade","High school","Some college","College graduate"),
+        main = "Weight vs Education",ylab="Weight")
+boxplot(BMXWT~DMDMARTL,names=c("Married","Widowed","Divorced","Separated","Never Married","Living with partner"),
+        main= "Weight Vs Marital Status",ylab="Weight")
+boxplot(BMXWT~INDHHIN2,ylab="Weight",xlab="Income Categories",main="Weight Vs Income")
+        
+#Creating a variable to hold difference of self reported weight and effective measured weight
+plot.new()
+par(mfrow=c(3,2))
+weight_data$wgtdiff <-weight_data$BMXWT-weight_data$own_weight
+boxplot(weight_data$wgtdiff~weight_data$RIAGENDR,names=c("Male","female"),ylab="Weight Diff",main = "Weight Diff Vs Gender")
+boxplot(weight_data$wgtdiff~weight_data$FIAINTRP,main="Weight Diff Vs Interpreter",names=c("Yes","No"),xlab="Interpreter",ylab="Weight Diff")
+boxplot(weight_data$wgtdiff ~ RIDRETH1, names = c("Mexican","Other Hispanic","Non-Hispanic White","NonHispanic Black","Other")
+        ,main = "Weight Diff Vs Race",ylab="Weight Diff")
+boxplot(weight_data$wgtdiff~DMDEDUC2,names = c("Less than 9th grade","9-11th grade","High school","Some college","College graduate"),
+        main = "Weight Diff vs Education",ylab="Weight Diff")
+boxplot(weight_data$wgtdiff~DMDMARTL,names=c("Married","Widowed","Divorced","Separated","Never Married","Living with partner"),
+        main= "Weight Diff Vs Marital Status",ylab="Weight Diff")
+boxplot(weight_data$wgtdiff~INDHHIN2,ylab="Weight Diff",xlab="Income Categories",main="Weight Diff Vs Income")
+
+#Correlation Between Accurate weight and self reported weight
+plot(weight_data$BMXWT,weight_data$own_weight)
+cor.test(weight_data$BMXWT,weight_data$own_weight)
+
+#Model selection 
+
+model1 <-lm(BMXWT~as.factor(RIAGENDR) + as.factor(RIDRETH1)+ as.factor(SMQ040)+ as.factor(DMDEDUC2)+as.factor(DMDMARTL)+
+              as.factor(FIAINTRP)+as.factor(INDHHIN2)+ as.factor(ALQ130))
+step(model1,direction = "backward")
+
+
+#Modelling selected variables
+model2 <-lm(BMXWT~as.factor(RIAGENDR) + as.factor(RIDRETH1)+ as.factor(SMQ040)+ as.factor(ALQ130)+as.factor(RIDAGEYR))
+model2
+plot(model2$residuals~model2$)
